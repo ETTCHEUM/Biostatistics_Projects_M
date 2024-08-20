@@ -1,0 +1,2 @@
+id	bmi	Tabac	age	Poids	Taille
+301	25	0	22	68	169

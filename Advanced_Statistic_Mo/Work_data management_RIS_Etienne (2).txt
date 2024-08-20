@@ -1,0 +1,2 @@
+id	bmi	age_cat	CSP	parite
+302	25	1	1	3
