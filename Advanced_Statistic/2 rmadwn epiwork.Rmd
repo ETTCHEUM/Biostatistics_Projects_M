@@ -1,0 +1,148 @@
+---
+title: '2'
+author: "Etienne Junior TCHEUMENI"
+date: "2023-04-08"
+output: html_document
+---
+
+```{r}
+nmiss<-function(x,na.rm=FALSE) { sum(is.na(x)) }
+pctmiss<-function(x,na.rm=FALSE) { sum(is.na(x))/length(x)*100 }
+q1<- function(x,na.rm=TRUE) {
+    if(na.rm) x<-x[!is.na(x)]
+    return(quantile(x, probs=0.25, na.rm=TRUE)) }
+q3<- function(x,na.rm=TRUE) {
+    if(na.rm) x<-x[!is.na(x)]
+    return(quantile(x, probs=0.75, na.rm=TRUE)) }
+```
+
+
+
+
+
+```{r}
+### lecture fichier csv
+df_rhc<-read.csv2('C:/Users/TCHEUMENI/Documents/MASTER EN BIOSTATISTIQUE/EPIDEMIO WORKS/EPIDE WORKS CODE/rhc devoir épidémio-RC csv.csv',
+                  stringsAsFactors = T)
+str(df_rhc)
+head(df_rhc)
+```
+
+
+```{r}
+# Transformation variable Medical History en facteur
+var_mh<-c('CARDIOHX','CHFHX','DEMENTHX','PSYCHHX','CHRPULHX','RENALHX',
+          'LIVERHX','GIBLEDHX','MALIGHX','IMMUNHX','TRANSHX','AMIHX')
+df_rhc[,var_mh]<-lapply(df_rhc[,var_mh], factor, level=c(0,1), 
+                        labels=c('No','Yes'))
+var_dat<-c('SADMDTE','DTHDTE','LSTCTDTE','DSCHDTE')
+```
+
+
+
+```{r}
+# Transformation date factor en date format date
+df_rhc[,var_dat]<-lapply(df_rhc[,var_dat], as.Date, format='%d/%m/%Y')
+# Transormation Activities of Daily Living
+df_rhc$ADLD3P<-factor(df_rhc$ADLD3P)
+# Transormation EDU en catégories
+df_rhc$EDU.cat<-cut(df_rhc$EDU, breaks=c(-Inf,6,9,12,Inf),
+                    labels=c('Primary','Lower Secondary','Upper secondary',
+                             'Post-secondary and tertiary'))
+with(df_rhc,(table(EDU,EDU.cat)))
+```
+
+
+
+```{r}
+# Transormation SCOMA1 en catégories
+df_rhc$SCOMA1.cat<-cut(df_rhc$SCOMA1,breaks=c(-Inf,44,Inf),
+                       labels=c('Minor-moderate','Severe'))
+with(df_rhc,(table(SCOMA1,SCOMA1.cat)))
+```
+
+
+
+```{r}
+# Changement de référence
+df_rhc$INCOME<-relevel(df_rhc$INCOME, ref=4)
+df_rhc$CA<-factor(df_rhc$CA, levels=c('No','Yes','Metastatic'))
+df_rhc$RACE<-relevel(df_rhc$RACE, ref=3)
+# Changement de valeur manquante
+levels(df_rhc$CAT2)[1]<-'NA'
+
+# Description globale des items
+```
+
+
+
+```{r}
+# Description globale des items
+prettyR::describe(df_rhc, num.desc = c("valid.n", "pctmiss","mean","sd","min",
+                                       "q1","median","q3","max"))
+```
+
+
+
+```{r}
+# Modifications valeurs
+df_rhc[df_rhc$WTKILO1<30,'WTKILO1']<-NA
+df_rhc[df_rhc$TEMP1==0,'TEMP1']<-NA
+df_rhc[df_rhc$MEANBP1==0,'MEANBP1']<-NA
+df_rhc[df_rhc$RESP1==0,'RESP1']<-NA
+df_rhc[df_rhc$HRT1==0,'HRT1']<-NA
+df_rhc[df_rhc$PAFI1<30|df_rhc$PAFI1>650,'PAFI1']<-NA
+df_rhc[df_rhc$PACO21<10,'PACO21']<-NA
+df_rhc[df_rhc$HEMA1<10,'HEMA1']<-NA
+df_rhc[df_rhc$ALB1>10,'ALB1']<-NA
+
+prettyR::describe(df_rhc, num.desc = c("valid.n", "pctmiss","mean","sd","min",
+                                       "q1","median","q3","max"))
+
+```
+
+
+
+```{r}
+# Vérification date #
+table(with(df_rhc, SADMDTE>DTHDTE), useNA = 'always')
+table(with(df_rhc, SADMDTE>LSTCTDTE), useNA = 'always')
+table(with(df_rhc, SADMDTE>DSCHDTE), useNA = 'always')
+table(with(df_rhc, LSTCTDTE>DTHDTE), useNA = 'always')
+df_rhc[with(df_rhc, !is.na(DTHDTE) & LSTCTDTE>DTHDTE),
+       c('PTID', 'DEATH',var_dat)]
+(ptid_lst<-df_rhc[with(df_rhc, !is.na(DTHDTE) & LSTCTDTE>DTHDTE),'PTID'])
+df_rhc[df_rhc$PTID %in% ptid_lst,'LSTCTDTE']<-df_rhc[df_rhc$PTID %in% ptid_lst,
+                                                     'DTHDTE']
+table(with(df_rhc, DSCHDTE>DTHDTE), useNA = 'always')
+table(with(df_rhc, DSCHDTE>LSTCTDTE), useNA = 'always')
+```
+
+```{r}
+# Check DTH30 & T3D30
+df_rhc$delay.dth<-ifelse(is.na(df_rhc$DTHDTE),NA,df_rhc$DTHDTE-df_rhc$SADMDTE)
+with(df_rhc, df_rhc[DTH30=='Yes'&T3D30!=delay.dth,c('PTID','SADMDTE','DTHDTE',
+                                                    'T3D30','delay.dth')])
+with(df_rhc, table(DTH30, delay.dth>30, useNA = 'always'))
+
+```
+
+
+```{r}
+# Suppression variables valeurs manquantes
+df_rhc<-subset(df_rhc, select=-c(URIN1,CAT2,ADLD3P))
+# Suppression variables inutiles
+df_rhc<-subset(df_rhc, select=-c(SADMDTE,DSCHDTE,DTHDTE,LSTCTDTE,SURV2MD1,DEATH,
+                                 delay.dth,EDU,SCOMA1))
+
+```
+
+```{r}
+### groupes de variables
+var.qt<-names(Filter(is.numeric,subset(df_rhc,select=-c(ROWNAMES,PTID,T3D30))))
+var.ql<-names(Filter(is.factor,df_rhc))
+```
+
+
+
+
